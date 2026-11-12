@@ -3,9 +3,14 @@ import { actions, useStore } from '../store'
 import type { AppState } from '../types'
 import { download } from '../utils'
 import { demoState } from '../demo'
+import SyncPanel from './SyncPanel'
+import { useSync } from '../sync'
 
 export default function Settings() {
   const state = useStore()
+  const sync = useSync()
+  const shared = Boolean(sync.family && sync.email)
+  const alsoOther = shared ? ' Das betrifft auch das Handy deines Partners.' : ''
   const [name, setName] = useState(state.baby.name)
   const [birth, setBirth] = useState(state.baby.birth)
   const [saved, setSaved] = useState(false)
@@ -26,7 +31,7 @@ export default function Settings() {
     try {
       const data = JSON.parse(await file.text()) as AppState
       if (!Array.isArray(data.entries)) throw new Error('Ungültige Datei')
-      if (confirm(`${data.entries.length} Einträge importieren? Die aktuellen Daten werden ersetzt.`)) {
+      if (confirm(`${data.entries.length} Einträge importieren? Die aktuellen Daten werden ersetzt.${alsoOther}`)) {
         actions.replaceAll(data)
         setName(data.baby?.name ?? '')
         setBirth(data.baby?.birth ?? '')
@@ -46,6 +51,8 @@ export default function Settings() {
         <button className="primary" onClick={saveBaby}>{saved ? '✓ Gespeichert' : 'Speichern'}</button>
       </section>
 
+      <SyncPanel />
+
       <section className="panel">
         <h2>Medikamente</h2>
         {state.meds.length === 0 ? (
@@ -64,13 +71,13 @@ export default function Settings() {
 
       <section className="panel">
         <h2>Daten</h2>
-        <p className="hint">Alle Daten bleiben nur auf diesem Gerät gespeichert. Erstelle regelmäßig eine Sicherung.</p>
+        <p className="hint">{shared ? 'Die Daten werden mit deiner Familie abgeglichen und zusätzlich auf diesem Gerät gespeichert.' : 'Alle Daten bleiben nur auf diesem Gerät gespeichert. Erstelle regelmäßig eine Sicherung.'}</p>
         <div className="btn-col">
           <button className="ghost" onClick={exportData}>⬇ Sicherung exportieren (JSON)</button>
           <button className="ghost" onClick={() => fileRef.current?.click()}>⬆ Sicherung importieren</button>
           <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])} />
           <button className="ghost" onClick={() => {
-            if (confirm('Beispieldaten laden? Die aktuellen Daten werden ersetzt.')) {
+            if (confirm(`Beispieldaten laden? Die aktuellen Daten werden ersetzt.${alsoOther}`)) {
               const d = demoState()
               actions.replaceAll(d)
               setName(d.baby.name)
@@ -78,7 +85,7 @@ export default function Settings() {
             }
           }}>✨ Beispieldaten laden</button>
           <button className="danger" onClick={() => {
-            if (confirm('Wirklich ALLE Daten löschen? Das kann nicht rückgängig gemacht werden.')) {
+            if (confirm(`Wirklich ALLE Daten löschen? Das kann nicht rückgängig gemacht werden.${alsoOther}`)) {
               actions.reset()
               setName('')
               setBirth('')

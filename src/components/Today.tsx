@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { Entry, EntryType } from '../types'
-import { TYPES, TYPE_ORDER } from '../types'
+import type { Entry, EntryType, SleepKind } from '../types'
+import { TYPES, entryMeta, sleepKindOf } from '../types'
 import { actions, useNow, useStore } from '../store'
 import {
   addDays, DAY, fmtDay, fmtDur, fmtTime, lastOf, overlap, predictSleep, sideLabel, startOfDay, HOUR,
@@ -8,7 +8,7 @@ import {
 import Timeline from './Timeline'
 
 interface Props {
-  onOpen: (type: EntryType, entry?: Entry) => void
+  onOpen: (type: EntryType, entry?: Entry, kind?: SleepKind) => void
 }
 
 export default function Today({ onOpen }: Props) {
@@ -26,6 +26,8 @@ export default function Today({ onOpen }: Props) {
   const feeds = dayEntries.filter((e) => (e.type === 'breast' || e.type === 'bottle') && e.start >= day).length
   const bottleMl = dayEntries.filter((e) => e.type === 'bottle' && e.start >= day).reduce((s, e) => s + (e.amountMl ?? 0), 0)
   const diapers = dayEntries.filter((e) => e.type === 'diaper').length
+  const naps = dayEntries.filter((e) => e.type === 'sleep' && e.start >= day && sleepKindOf(e) === 'nap').length
+  const nightWakes = dayEntries.filter((e) => e.type === 'nightwake' && e.start >= day).length
 
   const prediction = predictSleep(state, now)
   const lastFeed = lastOf(state, ['breast', 'bottle', 'solids'])
@@ -42,12 +44,62 @@ export default function Today({ onOpen }: Props) {
     })
     .filter((x) => x.last && now - x.last.start < 2 * DAY)
 
+  const runningSleep = running.find((e) => e.type === 'sleep')
+  const runningNightwake = running.find((e) => e.type === 'nightwake')
+
   function tapTile(type: EntryType) {
     const r = running.find((e) => e.type === type)
     if (r) actions.updateEntry(r.id, { end: Date.now() })
-    else if (type === 'sleep') actions.addEntry({ type: 'sleep', start: Date.now() })
     else onOpen(type)
   }
+
+  /** Schlaf-Kacheln: ein Tipp genügt, Uhrzeit = jetzt (später über den Verlauf änderbar). */
+  function sleepAction(action: 'wake' | 'nap' | 'night' | 'nightwake') {
+    const t = Date.now()
+    if (action === 'wake') {
+      // Morgens aufgewacht: laufenden Schlaf / nächtliches Aufwachen beenden
+      if (runningSleep) actions.updateEntry(runningSleep.id, { end: t })
+      if (runningNightwake) actions.updateEntry(runningNightwake.id, { end: t })
+      if (!runningSleep || sleepKindOf(runningSleep) === 'night' || runningNightwake) {
+        actions.addEntry({ type: 'wake', start: t })
+      }
+    } else if (action === 'night' && runningSleep && sleepKindOf(runningSleep) === 'night') {
+      sleepAction('wake') // Tipp auf laufenden Nachtschlaf = morgens aufgewacht
+    } else if (action === 'nap' || action === 'night') {
+      if (runningSleep && sleepKindOf(runningSleep) === action) {
+        actions.updateEntry(runningSleep.id, { end: t }) // Schlaf beenden
+        return
+      }
+      if (runningSleep) actions.updateEntry(runningSleep.id, { end: t })
+      if (runningNightwake) actions.updateEntry(runningNightwake.id, { end: t })
+      actions.addEntry({ type: 'sleep', start: t, sleepKind: action })
+    } else {
+      if (runningNightwake) {
+        // wieder eingeschlafen → Nachtschlaf geht weiter
+        actions.updateEntry(runningNightwake.id, { end: t })
+        actions.addEntry({ type: 'sleep', start: t, sleepKind: 'night' })
+      } else if (runningSleep) {
+        actions.updateEntry(runningSleep.id, { end: t })
+        actions.addEntry({ type: 'nightwake', start: t })
+      } else {
+        onOpen('nightwake')
+      }
+    }
+  }
+
+  const napRunning = runningSleep && sleepKindOf(runningSleep) === 'nap'
+  const nightRunning = runningSleep && sleepKindOf(runningSleep) === 'night'
+  const sleepTiles: { id: 'wake' | 'nap' | 'night' | 'nightwake'; emoji: string; label: string; color: string; active: boolean }[] = [
+    { id: 'wake', emoji: '🌤️', label: 'Aufwachen', color: 'var(--c-wake)', active: false },
+    { id: 'nap', emoji: '😴', label: napRunning ? 'Nickerchen beenden' : 'Nickerchen', color: 'var(--c-sleep)', active: !!napRunning },
+    { id: 'night', emoji: '🌙', label: nightRunning ? 'Nachtschlaf läuft' : 'Schlafenszeit', color: 'var(--c-night)', active: !!nightRunning },
+    {
+      id: 'nightwake', emoji: '🦉',
+      label: runningNightwake ? 'Wieder eingeschlafen' : 'Nachts wach',
+      color: 'var(--c-night)', active: !!runningNightwake,
+    },
+  ]
+  const otherTiles: EntryType[] = ['breast', 'bottle', 'diaper', 'solids', 'medicine', 'pump', 'growth', 'note']
 
   function switchSide(e: Entry) {
     const t = Date.now()
@@ -60,7 +112,7 @@ export default function Today({ onOpen }: Props) {
       {running.length > 0 && (
         <section className="timers">
           {running.map((e) => {
-            const meta = TYPES[e.type]
+            const meta = entryMeta(e)
             return (
               <div key={e.id} className="timer" style={{ borderColor: meta.color }}>
                 <span className="badge big" style={{ background: meta.color }}>{meta.emoji}</span>
@@ -69,13 +121,26 @@ export default function Today({ onOpen }: Props) {
                   <strong className="clock">{fmtDur(now - e.start, true)}</strong>
                 </div>
                 <div className="timer-actions">
+                  {nightRunning && e.id === runningSleep?.id && (
+                    <button className="ghost" onClick={() => sleepAction('nightwake')}>🦉 Nachts wach</button>
+                  )}
                   {(e.type === 'breast' || e.type === 'pump') && e.side !== 'both' && (
                     <button className="ghost" onClick={() => switchSide(e)}>⇄ Seite</button>
                   )}
                   <button className="ghost" onClick={() => onOpen(e.type, e)}>✎</button>
-                  <button className="stop" style={{ background: meta.color }} onClick={() => actions.updateEntry(e.id, { end: Date.now() })}>
-                    ■ Stopp
-                  </button>
+                  {e.type === 'nightwake' ? (
+                    <button className="stop" style={{ background: meta.color }} onClick={() => sleepAction('nightwake')}>
+                      🌙 Schläft wieder
+                    </button>
+                  ) : e.type === 'sleep' ? (
+                    <button className="stop" style={{ background: meta.color }} onClick={() => sleepAction(sleepKindOf(e) === 'night' ? 'wake' : 'nap')}>
+                      🌤️ Aufgewacht
+                    </button>
+                  ) : (
+                    <button className="stop" style={{ background: meta.color }} onClick={() => actions.updateEntry(e.id, { end: Date.now() })}>
+                      ■ Stopp
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -85,9 +150,15 @@ export default function Today({ onOpen }: Props) {
 
       <section className="cards">
         <div className="card wide sleep-card">
-          {prediction?.sleeping ? (
+          {prediction?.nightAwake ? (
             <>
-              <span className="label">😴 Schläft seit</span>
+              <span className="label">🦉 Nachts wach seit</span>
+              <strong>{fmtDur(now - prediction.since)}</strong>
+              <small>aufgewacht um {fmtTime(prediction.since)}</small>
+            </>
+          ) : prediction?.sleeping ? (
+            <>
+              <span className="label">{prediction.night ? '🌙 Nachtschlaf seit' : '😴 Nickerchen seit'}</span>
               <strong>{fmtDur(now - prediction.since)}</strong>
               <small>eingeschlafen um {fmtTime(prediction.since)}</small>
             </>
@@ -140,14 +211,26 @@ export default function Today({ onOpen }: Props) {
         ))}
       </section>
 
+      <h2 className="section-title">Schlaf</h2>
+      <section className="grid grid-4">
+        {sleepTiles.map((t) => (
+          <button key={t.id} className={`tile ${t.active ? 'active' : ''}`} onClick={() => sleepAction(t.id)} style={{ ['--tile' as string]: t.color }}>
+            <span className="tile-emoji">{t.emoji}</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </section>
+      <button className="link-btn" onClick={() => onOpen('sleep', undefined, 'nap')}>＋ Schlaf nachtragen</button>
+
+      <h2 className="section-title">Essen & Pflege</h2>
       <section className="grid">
-        {TYPE_ORDER.map((t) => {
+        {otherTiles.map((t) => {
           const meta = TYPES[t]
           const r = running.find((e) => e.type === t)
           return (
             <button key={t} className={`tile ${r ? 'active' : ''}`} onClick={() => tapTile(t)} style={{ ['--tile' as string]: meta.color }}>
               <span className="tile-emoji">{meta.emoji}</span>
-              <span>{r ? (t === 'sleep' ? 'Aufgewacht' : 'Stopp') : meta.label}</span>
+              <span>{r ? 'Stopp' : meta.label}</span>
             </button>
           )
         })}
@@ -160,7 +243,8 @@ export default function Today({ onOpen }: Props) {
           <button className="icon-btn" onClick={() => setDay(addDays(day, 1))} disabled={day >= startOfDay(now)} aria-label="Nächster Tag">›</button>
         </div>
         <div className="summary">
-          <span>😴 {fmtDur(sleepMs)}</span>
+          <span>😴 {fmtDur(sleepMs)}{naps ? ` · ${naps} Nickerchen` : ''}</span>
+          {nightWakes > 0 && <span>🦉 {nightWakes}× wach</span>}
           <span>🍼 {feeds}×{bottleMl ? ` · ${bottleMl} ml` : ''}</span>
           <span>🧷 {diapers}×</span>
         </div>

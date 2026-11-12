@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNow, useStore } from '../store'
 import { addDays, DAY, fmtDur, HOUR, overlap, startOfDay } from '../utils'
 import type { Entry } from '../types'
+import { sleepKindOf } from '../types'
 
 interface DayStat {
   day: number
@@ -12,6 +13,7 @@ interface DayStat {
   breastMs: number
   bottleMl: number
   diapers: number
+  nightWakes: number
   dirty: number
   entries: Entry[]
 }
@@ -28,16 +30,16 @@ export default function Stats() {
   for (let i = range - 1; i >= 0; i--) {
     const day = addDays(today, -i)
     const end = day + DAY
-    const es = state.entries.filter((e) => e.start < end && (e.end ?? (e.type === 'sleep' || e.type === 'breast' || e.type === 'pump' ? now : e.start)) >= day)
+    const es = state.entries.filter((e) => e.start < end && (e.end ?? (e.type === 'sleep' || e.type === 'nightwake' || e.type === 'breast' || e.type === 'pump' ? now : e.start)) >= day)
     const own = es.filter((e) => e.start >= day)
     const sleeps = es.filter((e) => e.type === 'sleep')
-    // Tagschlaf = Schlaf zwischen 7 und 19 Uhr
-    const napMs = sleeps.reduce((s, e) => s + overlap(e, day + 7 * HOUR, day + 19 * HOUR, now), 0)
+    const napMs = sleeps.filter((e) => sleepKindOf(e) === 'nap').reduce((s, e) => s + overlap(e, day, end, now), 0)
     days.push({
       day,
       sleepMs: sleeps.reduce((s, e) => s + overlap(e, day, end, now), 0),
       napMs,
-      naps: own.filter((e) => e.type === 'sleep' && new Date(e.start).getHours() >= 7 && new Date(e.start).getHours() < 19).length,
+      naps: own.filter((e) => e.type === 'sleep' && sleepKindOf(e) === 'nap').length,
+      nightWakes: own.filter((e) => e.type === 'nightwake').length,
       feeds: own.filter((e) => e.type === 'breast' || e.type === 'bottle').length,
       breastMs: own.filter((e) => e.type === 'breast').reduce((s, e) => s + ((e.end ?? now) - e.start), 0),
       bottleMl: own.filter((e) => e.type === 'bottle').reduce((s, e) => s + (e.amountMl ?? 0), 0),
@@ -62,10 +64,12 @@ export default function Stats() {
       </div>
 
       <section className="cards">
-        <div className="card"><span className="label">Ø Schlaf / Tag</span><strong>{fmtDur(avg((d) => d.sleepMs))}</strong><small>davon tagsüber {fmtDur(avg((d) => d.napMs))}</small></div>
+        <div className="card"><span className="label">Ø Schlaf / Tag</span><strong>{fmtDur(avg((d) => d.sleepMs))}</strong><small>davon Nickerchen {fmtDur(avg((d) => d.napMs))}</small></div>
         <div className="card"><span className="label">Ø Mahlzeiten</span><strong>{avg((d) => d.feeds).toFixed(1).replace('.', ',')}×</strong><small>{Math.round(avg((d) => d.bottleMl))} ml Fläschchen</small></div>
         <div className="card"><span className="label">Ø Windeln</span><strong>{avg((d) => d.diapers).toFixed(1).replace('.', ',')}×</strong><small>{avg((d) => d.dirty).toFixed(1).replace('.', ',')}× mit Stuhlgang</small></div>
-        <div className="card"><span className="label">Ø Tagschläfe</span><strong>{avg((d) => d.naps).toFixed(1).replace('.', ',')}</strong><small>zwischen 7 und 19 Uhr</small></div>
+        <div className="card"><span className="label">Ø Nickerchen</span><strong>{avg((d) => d.naps).toFixed(1).replace('.', ',')}</strong><small>pro Tag</small></div>
+        <div className="card"><span className="label">Ø Nachts wach</span><strong>{avg((d) => d.nightWakes).toFixed(1).replace('.', ',')}×</strong><small>pro Nacht</small></div>
+        <div className="card"><span className="label">Ø Nachtschlaf</span><strong>{fmtDur(avg((d) => d.sleepMs - d.napMs))}</strong><small>pro 24 h</small></div>
       </section>
 
       <h2 className="section-title">Tagesrhythmus</h2>
@@ -80,12 +84,13 @@ export default function Stats() {
                 const left = ((s - d.day) / DAY) * 100
                 if (e.type === 'sleep') {
                   const en = Math.min(e.end ?? now, d.day + DAY)
-                  return <i key={e.id} className="r-sleep" style={{ left: `${left}%`, width: `${((en - s) / DAY) * 100}%` }} />
+                  return <i key={e.id} className={sleepKindOf(e) === 'night' ? 'r-sleep r-night' : 'r-sleep'} style={{ left: `${left}%`, width: `${((en - s) / DAY) * 100}%` }} />
                 }
                 if (e.start < d.day) return null
                 if (e.type === 'breast' || e.type === 'bottle' || e.type === 'solids')
                   return <i key={e.id} className="r-feed" style={{ left: `${left}%` }} />
                 if (e.type === 'diaper') return <i key={e.id} className="r-diaper" style={{ left: `${left}%` }} />
+                if (e.type === 'nightwake') return <i key={e.id} className="r-wake" style={{ left: `${left}%` }} />
                 if (e.type === 'medicine') return <i key={e.id} className="r-med" style={{ left: `${left}%` }} />
                 return null
               })}
@@ -93,14 +98,16 @@ export default function Stats() {
           </div>
         ))}
         <div className="legend">
-          <span><i className="r-sleep" /> Schlaf</span>
+          <span><i className="r-sleep r-night" /> Nachtschlaf</span>
+          <span><i className="r-sleep" /> Nickerchen</span>
+          <span><i className="r-wake" /> Nachts wach</span>
           <span><i className="r-feed" /> Mahlzeit</span>
           <span><i className="r-diaper" /> Windel</span>
           <span><i className="r-med" /> Medizin</span>
         </div>
       </div>
 
-      <Bars title="Schlaf pro Tag" days={days} value={(d) => d.sleepMs / HOUR} fmt={(v) => `${v.toFixed(1).replace('.', ',')} h`} cls="b-sleep" />
+      <Bars title="Schlaf pro Tag (Stunden)" days={days} value={(d) => d.sleepMs / HOUR} fmt={(v) => `${v.toFixed(1).replace('.', ',')} h`} cls="b-sleep" />
       <Bars title="Mahlzeiten pro Tag" days={days} value={(d) => d.feeds} fmt={(v) => `${v}`} cls="b-feed" />
       {days.some((d) => d.bottleMl) && (
         <Bars title="Fläschchen (ml)" days={days} value={(d) => d.bottleMl} fmt={(v) => `${v}`} cls="b-feed" />

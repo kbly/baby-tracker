@@ -1,19 +1,21 @@
 import { useState } from 'react'
-import type { Entry, EntryType } from './types'
+import type { Entry, EntryType, SleepKind } from './types'
 import { useNow, useStore } from './store'
 import { ageText } from './utils'
 import Today from './components/Today'
 import Stats from './components/Stats'
 import Settings from './components/Settings'
 import EntrySheet from './components/EntrySheet'
+import { useSync } from './sync'
 
 type Tab = 'today' | 'stats' | 'settings'
 
 export default function App() {
   const state = useStore()
   const now = useNow(60_000)
+  const sync = useSync()
   const [tab, setTab] = useState<Tab>(() => (state.baby.birth ? 'today' : 'settings'))
-  const [sheet, setSheet] = useState<{ type: EntryType; entry?: Entry } | null>(null)
+  const [sheet, setSheet] = useState<{ type: EntryType; entry?: Entry; kind?: SleepKind } | null>(null)
 
   const title = state.baby.name || 'Baby Tracker'
   const age = ageText(state.baby.birth, now)
@@ -26,10 +28,16 @@ export default function App() {
           <h1>{title}</h1>
           {age && <p>{age} alt</p>}
         </div>
+        {sync.family && sync.email && (
+          <button className={`sync-badge ${sync.phase}`} onClick={() => setTab('settings')} title="Synchronisierung">
+            <span className="dot" />
+            {sync.phase === 'syncing' ? 'Sync …' : sync.phase === 'offline' ? 'Offline' : sync.phase === 'error' ? 'Fehler' : 'Geteilt'}
+          </button>
+        )}
       </header>
 
       <main>
-        {tab === 'today' && <Today onOpen={(type, entry) => setSheet({ type, entry })} />}
+        {tab === 'today' && <Today onOpen={(type, entry, kind) => setSheet({ type, entry, kind })} />}
         {tab === 'stats' && <Stats />}
         {tab === 'settings' && <Settings />}
       </main>
@@ -40,7 +48,7 @@ export default function App() {
         <button className={tab === 'settings' ? 'on' : ''} onClick={() => setTab('settings')}><span>⚙️</span>Mehr</button>
       </nav>
 
-      {sheet && <EntrySheet key={sheet.entry?.id ?? sheet.type} type={sheet.type} entry={sheet.entry} onClose={() => setSheet(null)} />}
+      {sheet && <EntrySheet key={sheet.entry?.id ?? sheet.type} type={sheet.type} entry={sheet.entry} sleepKind={sheet.kind} onClose={() => setSheet(null)} />}
     </div>
   )
 }

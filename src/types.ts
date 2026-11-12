@@ -1,5 +1,7 @@
 export type EntryType =
   | 'sleep'
+  | 'wake'
+  | 'nightwake'
   | 'breast'
   | 'bottle'
   | 'solids'
@@ -10,6 +12,7 @@ export type EntryType =
   | 'note'
 
 export type Side = 'L' | 'R' | 'both'
+export type SleepKind = 'nap' | 'night'
 export type DiaperKind = 'wet' | 'dirty' | 'both'
 
 export interface Entry {
@@ -19,6 +22,8 @@ export interface Entry {
   start: number
   /** Endzeit (ms). Fehlt bei laufendem Timer. */
   end?: number
+  /** Nickerchen oder Nachtschlaf (nur bei type 'sleep') */
+  sleepKind?: SleepKind
   side?: Side
   amountMl?: number
   content?: string
@@ -63,6 +68,8 @@ export interface TypeMeta {
 
 export const TYPES: Record<EntryType, TypeMeta> = {
   sleep: { label: 'Schlaf', emoji: '😴', color: 'var(--c-sleep)', timed: true },
+  wake: { label: 'Aufgewacht', emoji: '🌤️', color: 'var(--c-wake)', timed: false },
+  nightwake: { label: 'Nächtliches Aufwachen', emoji: '🦉', color: 'var(--c-night)', timed: true },
   breast: { label: 'Stillen', emoji: '🤱', color: 'var(--c-breast)', timed: true },
   bottle: { label: 'Fläschchen', emoji: '🍼', color: 'var(--c-bottle)', timed: false },
   solids: { label: 'Beikost', emoji: '🥣', color: 'var(--c-solids)', timed: false },
@@ -74,5 +81,21 @@ export const TYPES: Record<EntryType, TypeMeta> = {
 }
 
 export const TYPE_ORDER: EntryType[] = [
-  'sleep', 'breast', 'bottle', 'diaper', 'solids', 'medicine', 'pump', 'growth', 'note',
+  'sleep', 'wake', 'nightwake', 'breast', 'bottle', 'diaper', 'solids', 'medicine', 'pump', 'growth', 'note',
 ]
+
+/** Nickerchen oder Nachtschlaf – ältere Einträge ohne Angabe werden nach Uhrzeit eingeordnet. */
+export function sleepKindOf(e: Entry): SleepKind {
+  if (e.sleepKind) return e.sleepKind
+  const h = new Date(e.start).getHours()
+  return h >= 18 || h < 6 ? 'night' : 'nap'
+}
+
+/** Anzeigename und Symbol eines Eintrags (Schlaf je nach Art). */
+export function entryMeta(e: Entry): TypeMeta {
+  const m = TYPES[e.type]
+  if (e.type !== 'sleep') return m
+  return sleepKindOf(e) === 'night'
+    ? { ...m, label: 'Nachtschlaf', emoji: '🌙', color: 'var(--c-night)' }
+    : { ...m, label: 'Nickerchen' }
+}

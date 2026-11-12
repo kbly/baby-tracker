@@ -10,6 +10,8 @@
   --shadow: 0 2px 10px rgba(60, 40, 120, 0.07);
 
   --c-sleep: #7c6cf0;
+  --c-night: #3f4ba8;
+  --c-wake: #f2b84b;
   --c-breast: #e87aa4;
   --c-bottle: #f0a030;
   --c-solids: #4fb27a;
@@ -225,3 +227,32 @@ main > section, main > .panel { margin-bottom: 18px; }
   .grid { gap: 8px; }
   .row3 { grid-template-columns: 1fr 1fr; }
 }
+
+/* Gemeinsam nutzen */
+.choice { background: var(--surface-2); border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
+.invite { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface-2); border-radius: 14px; padding: 12px; }
+.invite .hint { flex-basis: 100%; }
+.invite strong { flex: 1; font-size: 1.5rem; letter-spacing: .15em; font-variant-numeric: tabular-nums; }
+.sync-line { margin: 0; font-size: .88rem; display: flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-solids); display: inline-block; flex: none; }
+.syncing .dot { background: var(--c-bottle); animation: blink 1s infinite; }
+.offline .dot, .off .dot { background: var(--muted); }
+.error .dot { background: var(--danger); }
+@keyframes blink { 50% { opacity: .3; } }
+.sync-badge {
+  margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted);
+  background: var(--surface); border-radius: 999px; padding: 6px 10px; box-shadow: var(--shadow);
+}
+.sync-line.error { color: var(--danger); }
+button:disabled { opacity: .5; cursor: default; }
+
+.grid-4 { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.grid-4 .tile { font-size: .78rem; padding: 12px 4px; text-align: center; line-height: 1.2; }
+.grid-4 .tile-emoji { width: 42px; height: 42px; font-size: 1.35rem; }
+main > .section-title:first-of-type { margin-top: 4px; }
+.link-btn { color: var(--accent); font-size: .88rem; padding: 10px 2px 0; font-weight: 500; }
+@media (max-width: 360px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+.r-night { background: var(--c-night) !important; opacity: .9; }
+.r-wake { width: 3px; margin-left: -1px; }
+.rhythm-bar .r-wake { background: var(--c-wake); }
+.legend .r-wake { background: var(--c-wake); }

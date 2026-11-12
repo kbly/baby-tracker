@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import type { DiaperKind, Entry, EntryType, Side } from '../types'
-import { TYPES } from '../types'
+import type { DiaperKind, Entry, EntryType, Side, SleepKind } from '../types'
+import { TYPES, entryMeta, sleepKindOf } from '../types'
 import { actions, useStore } from '../store'
 import { fromLocalInput, toLocalInput } from '../utils'
 
 interface Props {
   type: EntryType
   entry?: Entry
+  /** Vorauswahl für neuen Schlaf-Eintrag */
+  sleepKind?: SleepKind
   onClose: () => void
 }
 
@@ -16,9 +18,10 @@ const num = (v: string) => {
 }
 const str = (n?: number) => (n === undefined ? '' : String(n).replace('.', ','))
 
-export default function EntrySheet({ type, entry, onClose }: Props) {
+export default function EntrySheet({ type, entry, sleepKind: initialKind, onClose }: Props) {
   const state = useStore()
-  const meta = TYPES[type]
+  const [kind, setKind] = useState<SleepKind>(entry ? sleepKindOf(entry) : (initialKind ?? 'nap'))
+  const meta = type === 'sleep' ? entryMeta({ id: '', type, start: 0, sleepKind: kind }) : TYPES[type]
   const isNew = !entry
   const [start, setStart] = useState(toLocalInput(entry?.start ?? Date.now()))
   const [end, setEnd] = useState(entry?.end ? toLocalInput(entry.end) : '')
@@ -60,6 +63,9 @@ export default function EntrySheet({ type, entry, onClose }: Props) {
 
     const data: Omit<Entry, 'id'> = { type, start: s, end: e, note: note.trim() || undefined }
     switch (type) {
+      case 'sleep':
+        data.sleepKind = kind
+        break
       case 'breast':
         data.side = side
         break
@@ -120,14 +126,21 @@ export default function EntrySheet({ type, entry, onClose }: Props) {
           <button className="icon-btn" onClick={onClose} aria-label="Schließen">✕</button>
         </div>
 
+        {type === 'sleep' && (
+          <div className="seg">
+            <button type="button" className={kind === 'nap' ? 'on' : ''} onClick={() => setKind('nap')}>😴 Nickerchen</button>
+            <button type="button" className={kind === 'night' ? 'on' : ''} onClick={() => setKind('night')}>🌙 Nachtschlaf</button>
+          </div>
+        )}
+
         <label className="field">
-          <span>{meta.timed ? 'Start' : 'Zeit'}</span>
+          <span>{meta.timed ? (type === 'sleep' && kind === 'night' ? 'Schlafenszeit' : type === 'nightwake' ? 'Wach seit' : 'Start') : 'Zeit'}</span>
           <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
         </label>
 
         {meta.timed && (
           <label className="field">
-            <span>Ende {isNew && <small>(leer lassen, um Timer zu starten)</small>}</span>
+            <span>{type === 'sleep' ? 'Aufgewacht' : type === 'nightwake' ? 'Wieder eingeschlafen' : 'Ende'} {isNew && <small>(leer lassen, um Timer zu starten)</small>}</span>
             <div className="row">
               <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
               {end ? (

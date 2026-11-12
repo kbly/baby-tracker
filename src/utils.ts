@@ -1,4 +1,5 @@
 import type { AppState, Entry } from './types'
+import { sleepKindOf } from './types'
 
 export const MIN = 60_000
 export const HOUR = 60 * MIN
@@ -105,7 +106,10 @@ export function describe(e: Entry, now = Date.now()): string {
   const dur = e.end !== undefined ? fmtDur(e.end - e.start) : `läuft seit ${fmtDur(now - e.start)}`
   switch (e.type) {
     case 'sleep':
+    case 'nightwake':
       return dur
+    case 'wake':
+      return 'Tag beginnt'
     case 'breast':
       return [sideLabel(e.side), dur].filter(Boolean).join(' · ')
     case 'pump':
@@ -155,6 +159,8 @@ export function wakeWindow(birth: string) {
 
 export interface Prediction {
   sleeping: boolean
+  night?: boolean
+  nightAwake?: boolean
   since: number
   windowFrom?: number
   windowTo?: number
@@ -164,8 +170,18 @@ export interface Prediction {
 export function predictSleep(state: AppState, now = Date.now()): Prediction | undefined {
   const sleeps = state.entries.filter((e) => e.type === 'sleep').sort((a, b) => b.start - a.start)
   const running = sleeps.find((e) => e.end === undefined)
-  if (running) return { sleeping: true, since: running.start }
-  const last = sleeps.find((e) => e.end !== undefined && e.end <= now)
+  if (running) return { sleeping: true, night: sleepKindOf(running) === 'night', since: running.start }
+  const nw = state.entries.find((e) => e.type === 'nightwake' && e.end === undefined)
+  if (nw) return { sleeping: false, nightAwake: true, since: nw.start }
+  const lastSleep = sleeps.find((e) => e.end !== undefined && e.end <= now)
+  const lastWake = state.entries
+    .filter((e) => e.type === 'wake' && e.start <= now)
+    .sort((a, b) => b.start - a.start)[0]
+  // "Aufgewacht" ohne passenden Schlafeintrag zählt als Ende des Nachtschlafs
+  const last: Entry | undefined =
+    lastWake && (!lastSleep || lastWake.start > lastSleep.end!)
+      ? { ...lastWake, end: lastWake.start, start: lastWake.start - 10 * HOUR }
+      : lastSleep
   if (!last || last.end === undefined) return undefined
   const ww = wakeWindow(state.baby.birth)
   if (!ww) return { sleeping: false, since: last.end }

@@ -1,5 +1,5 @@
 import type { Entry } from '../types'
-import { TYPES } from '../types'
+import { entryMeta } from '../types'
 import { describe, fmtTime } from '../utils'
 
 interface Props {
@@ -15,7 +15,7 @@ export default function Timeline({ entries, now, onEdit }: Props) {
   return (
     <ul className="timeline">
       {entries.map((e) => {
-        const meta = TYPES[e.type]
+        const meta = entryMeta(e)
         const running = meta.timed && e.end === undefined
         return (
           <li key={e.id}>
