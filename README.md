@@ -27,7 +27,9 @@ Auf dem Handy öffnen → „Zum Home-Bildschirm hinzufügen“ – dann verhäl
 - **Medikamente**: Mindestabstand je Medikament, Anzeige „Nächste Gabe ab …“
 - **Tagesansicht** mit Zusammenfassung, Einträge antippen zum Bearbeiten/Löschen
 - **Statistik**: Durchschnittswerte, 24-h-Tagesrhythmus, Balkendiagramme (7/14/30 Tage), Wachstumstabelle
-- **Daten**: Export/Import als JSON, Beispieldaten, Dark Mode
+- **Export**: als Tabelle (CSV, öffnet direkt in Excel) oder komplette Sicherung (JSON)
+- **Import**: CSV-Dateien anderer Apps (z. B. Napper) mit automatischer Spalten- und Typ-Erkennung, Zuordnung anpassbar, Vorschau, Duplikate werden übersprungen; JSON-Sicherung wiederherstellen
+- Beispieldaten, Dark Mode
 
 ## Gemeinsam nutzen (Abgleich zwischen zwei Handys)
 
@@ -61,6 +63,7 @@ VITE_SUPABASE_ANON_KEY=...
 | `src/store.ts` | Zustand + Speicherung in `localStorage` |
 | `src/predict.ts` | Vorhersagen für Schlaf, Schlafenszeit und Mahlzeiten |
 | `src/notify.ts` | Lokale Erinnerungen |
+| `src/csv.ts` | CSV-Export, CSV-Parser und Import-Zuordnung |
 | `src/sync.ts` | Abgleich mit Supabase (Anmeldung, Familie, Upload-Warteschlange, Echtzeit) |
 | `supabase/schema.sql` | Datenbank-Tabellen und Zugriffsregeln |
 | `src/utils.ts` | Zeitformatierung, Alter, Schlafvorhersage (`WAKE_WINDOWS`) |

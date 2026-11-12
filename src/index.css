@@ -184,7 +184,7 @@ main > section, main > .panel { margin-bottom: 18px; }
 .hint { color: var(--muted); font-size: .85rem; margin: 0; }
 .hint.center { text-align: center; margin: 8px 0; }
 .btn-col { display: grid; gap: 8px; }
-.btn-col .ghost { padding: 12px; text-align: left; }
+.btn-col .ghost { padding: 12px; text-align: left; white-space: normal; }
 .med-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .med-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
@@ -268,3 +268,13 @@ main > .section-title:first-of-type { margin-top: 4px; }
 .switch i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
 .switch.on { background: var(--accent); }
 .switch.on i { transform: translateX(18px); }
+
+.sub { font-size: .9rem; margin: 6px 0 0; color: var(--muted); font-weight: 600; }
+select { font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; min-width: 0; }
+.map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.type-map { display: grid; gap: 6px; }
+.type-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: center; font-size: .9rem; }
+.type-row span { overflow-wrap: anywhere; }
+.type-row small { color: var(--muted); }
+.preview .tl-item { box-shadow: none; background: var(--surface-2); }
+@media (max-width: 380px) { .map-grid { grid-template-columns: 1fr; } }

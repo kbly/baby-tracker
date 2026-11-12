@@ -85,6 +85,12 @@ export const actions = {
     commit({ ...state, entries: [...state.entries, entry] }, { entryIds: [entry.id], profile: false })
     return entry
   },
+  /** Mehrere Einträge auf einmal hinzufügen (Import). */
+  addEntries(list: Omit<Entry, 'id'>[]) {
+    const added = list.map((e) => ({ ...e, id: uid() }))
+    commit({ ...state, entries: [...state.entries, ...added] }, { entryIds: added.map((e) => e.id), profile: false })
+    return added.length
+  },
   updateEntry(id: string, patch: Partial<Entry>) {
     commit(
       { ...state, entries: state.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)) },
