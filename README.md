@@ -20,7 +20,10 @@ Auf dem Handy öffnen → „Zum Home-Bildschirm hinzufügen“ – dann verhäl
 - **Gemeinsam nutzen**: Beide Eltern sehen dieselben Daten in Echtzeit (über Supabase, siehe unten)
 - **Schnellerfassung** für Stillen, Fläschchen, Windel, Beikost, Medizin, Abpumpen, Wachstum, Notiz
 - **Timer** für Schlaf, Stillen und Abpumpen (laufen weiter, auch wenn die App geschlossen wird), Seitenwechsel beim Stillen
-- **Schlafvorhersage**: nächstes Schlaffenster aus altersabhängigen Wachfenstern
+- **Schlafvorhersage**: nächstes Nickerchen bzw. Schlafenszeit aus den persönlichen Wachzeiten der letzten 7 Tage (je nach Tageszeit / wievieltes Nickerchen); bei zu wenigen Daten altersabhängige Richtwerte
+- **Mahlzeit-Vorhersage**: nächste Mahlzeit aus den üblichen Abständen (getrennt für Tag und Nacht)
+- **Übliche Schlafenszeit** aus den letzten Abenden
+- **Erinnerungen** (Schlaffenster, Mahlzeit, Medikament) als Benachrichtigung, solange die App geöffnet ist oder im Hintergrund läuft
 - **Medikamente**: Mindestabstand je Medikament, Anzeige „Nächste Gabe ab …“
 - **Tagesansicht** mit Zusammenfassung, Einträge antippen zum Bearbeiten/Löschen
 - **Statistik**: Durchschnittswerte, 24-h-Tagesrhythmus, Balkendiagramme (7/14/30 Tage), Wachstumstabelle
@@ -56,6 +59,8 @@ VITE_SUPABASE_ANON_KEY=...
 |---|---|
 | `src/types.ts` | Datenmodell und Eintragstypen (Farben, Emojis) |
 | `src/store.ts` | Zustand + Speicherung in `localStorage` |
+| `src/predict.ts` | Vorhersagen für Schlaf, Schlafenszeit und Mahlzeiten |
+| `src/notify.ts` | Lokale Erinnerungen |
 | `src/sync.ts` | Abgleich mit Supabase (Anmeldung, Familie, Upload-Warteschlange, Echtzeit) |
 | `supabase/schema.sql` | Datenbank-Tabellen und Zugriffsregeln |
 | `src/utils.ts` | Zeitformatierung, Alter, Schlafvorhersage (`WAKE_WINDOWS`) |
@@ -66,5 +71,5 @@ VITE_SUPABASE_ANON_KEY=...
 
 ## Mögliche nächste Schritte
 
-- Erinnerungen per Push-Benachrichtigung (z. B. Medikamente)
+- Erinnerungen auch bei komplett geschlossener App (Web-Push über einen Server, z. B. Supabase Edge Function)
 - Native App mit React Native/Expo bzw. Capacitor für App Store / Play Store

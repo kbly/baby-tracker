@@ -7,6 +7,7 @@ import Stats from './components/Stats'
 import Settings from './components/Settings'
 import EntrySheet from './components/EntrySheet'
 import { useSync } from './sync'
+import { useReminders } from './notify'
 
 type Tab = 'today' | 'stats' | 'settings'
 
@@ -14,6 +15,7 @@ export default function App() {
   const state = useStore()
   const now = useNow(60_000)
   const sync = useSync()
+  useReminders()
   const [tab, setTab] = useState<Tab>(() => (state.baby.birth ? 'today' : 'settings'))
   const [sheet, setSheet] = useState<{ type: EntryType; entry?: Entry; kind?: SleepKind } | null>(null)
 

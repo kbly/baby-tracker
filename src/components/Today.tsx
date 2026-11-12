@@ -3,9 +3,10 @@ import type { Entry, EntryType, SleepKind } from '../types'
 import { TYPES, entryMeta, sleepKindOf } from '../types'
 import { actions, useNow, useStore } from '../store'
 import {
-  addDays, DAY, fmtDay, fmtDur, fmtTime, lastOf, overlap, predictSleep, sideLabel, startOfDay, HOUR,
+  addDays, DAY, fmtDay, fmtDur, fmtTime, lastOf, overlap, sideLabel, startOfDay, HOUR,
 } from '../utils'
 import Timeline from './Timeline'
+import { forecastFeed, forecastSleep } from '../predict'
 
 interface Props {
   onOpen: (type: EntryType, entry?: Entry, kind?: SleepKind) => void
@@ -29,8 +30,9 @@ export default function Today({ onOpen }: Props) {
   const naps = dayEntries.filter((e) => e.type === 'sleep' && e.start >= day && sleepKindOf(e) === 'nap').length
   const nightWakes = dayEntries.filter((e) => e.type === 'nightwake' && e.start >= day).length
 
-  const prediction = predictSleep(state, now)
-  const lastFeed = lastOf(state, ['breast', 'bottle', 'solids'])
+  const sleep = forecastSleep(state, now)
+  const feed = forecastFeed(state, now)
+  const isNightNow = new Date(now).getHours() >= 20 || new Date(now).getHours() < 6
   const lastDiaper = lastOf(state, ['diaper'])
 
   // Medikamente: wann ist die nächste Gabe frühestens möglich?
@@ -150,38 +152,42 @@ export default function Today({ onOpen }: Props) {
 
       <section className="cards">
         <div className="card wide sleep-card">
-          {prediction?.nightAwake ? (
+          {sleep.state === 'night-awake' ? (
             <>
               <span className="label">🦉 Nachts wach seit</span>
-              <strong>{fmtDur(now - prediction.since)}</strong>
-              <small>aufgewacht um {fmtTime(prediction.since)}</small>
+              <strong>{fmtDur(now - sleep.since!)}</strong>
+              <small>aufgewacht um {fmtTime(sleep.since!)}</small>
             </>
-          ) : prediction?.sleeping ? (
+          ) : sleep.state === 'sleeping' ? (
             <>
-              <span className="label">{prediction.night ? '🌙 Nachtschlaf seit' : '😴 Nickerchen seit'}</span>
-              <strong>{fmtDur(now - prediction.since)}</strong>
-              <small>eingeschlafen um {fmtTime(prediction.since)}</small>
+              <span className="label">{sleep.night ? '🌙 Nachtschlaf seit' : '😴 Nickerchen seit'}</span>
+              <strong>{fmtDur(now - sleep.since!)}</strong>
+              <small>eingeschlafen um {fmtTime(sleep.since!)}</small>
             </>
-          ) : prediction ? (
+          ) : sleep.state === 'awake' && sleep.next ? (
             <>
-              <span className="label">☀️ Wach seit {fmtDur(now - prediction.since)}</span>
-              {prediction.windowFrom && prediction.windowTo ? (
-                <>
-                  <strong>
-                    Nächster Schlaf: {fmtTime(prediction.windowFrom)} – {fmtTime(prediction.windowTo)}
-                  </strong>
-                  <SleepBar from={prediction.since} a={prediction.windowFrom} b={prediction.windowTo} now={now} />
-                  <small>
-                    {now > prediction.windowTo
-                      ? 'Das Wachfenster ist überschritten – auf Müdigkeitszeichen achten.'
-                      : now >= prediction.windowFrom
-                        ? 'Jetzt ist ein guter Zeitpunkt für den nächsten Schlaf.'
-                        : `Typisches Wachfenster in diesem Alter: ${prediction.wakeWindowMin![0]}–${prediction.wakeWindowMin![1]} min`}
-                  </small>
-                </>
-              ) : (
-                <small>Geburtsdatum unter „Mehr“ eintragen, um eine Schlafvorhersage zu erhalten.</small>
-              )}
+              <span className="label">☀️ Wach seit {fmtDur(now - sleep.since!)}</span>
+              <strong>
+                {sleep.next.kind === 'bedtime' ? '🌙 Schlafenszeit' : `😴 ${sleep.next.napNumber}. Nickerchen`} ca. {fmtTime(sleep.next.est)}
+              </strong>
+              <TimeBar from={sleep.since!} a={sleep.next.from} b={sleep.next.to} now={now} />
+              <small>
+                {now > sleep.next.to
+                  ? 'Das Schlaffenster ist überschritten – auf Müdigkeitszeichen achten.'
+                  : now >= sleep.next.from
+                    ? 'Jetzt ist ein guter Zeitpunkt zum Hinlegen.'
+                    : `Fenster ${fmtTime(sleep.next.from)} – ${fmtTime(sleep.next.to)} · Wachzeit ca. ${fmtDur(sleep.next.wakeWindowMin * 60_000)}`}
+              </small>
+              <small className="source">
+                {sleep.next.source === 'personal'
+                  ? `📈 Aus euren Daten (${sleep.next.samples} Wachphasen, 7 Tage)`
+                  : '📘 Richtwerte für das Alter – wird mit mehr Einträgen persönlicher'}
+              </small>
+            </>
+          ) : sleep.needsBirth ? (
+            <>
+              <span className="label">☀️ Wach seit {fmtDur(now - sleep.since!)}</span>
+              <small>Geburtsdatum unter „Mehr“ eintragen, um eine Schlafvorhersage zu erhalten.</small>
             </>
           ) : (
             <>
@@ -190,10 +196,45 @@ export default function Today({ onOpen }: Props) {
             </>
           )}
         </div>
+        <div className="card wide feed-card">
+          {feed.feeding ? (
+            <>
+              <span className="label">🤱 Wird gerade gestillt</span>
+              <strong>seit {fmtTime(running.find((e) => e.type === 'breast')!.start)}</strong>
+            </>
+          ) : feed.next && feed.last ? (
+            <>
+              <span className="label">🍼 Letzte Mahlzeit vor {fmtDur(now - feed.last.start)} ({entryMeta(feed.last).label}, {fmtTime(feed.last.start)})</span>
+              <strong>Nächste Mahlzeit ca. {fmtTime(feed.next.est)}</strong>
+              <TimeBar from={feed.last.start} a={feed.next.from} b={feed.next.to} now={now} />
+              <small>
+                {now > feed.next.to
+                  ? 'Länger als üblich – auf Hungerzeichen achten.'
+                  : now >= feed.next.from
+                    ? 'Hunger ist jetzt wahrscheinlich.'
+                    : `Zwischen ${fmtTime(feed.next.from)} und ${fmtTime(feed.next.to)}`}
+              </small>
+              <small className="source">
+                {feed.next.source === 'personal'
+                  ? `📈 Üblicher Abstand ${isNightNow ? 'nachts' : 'tagsüber'}: ca. ${fmtDur((feed.avgIntervalMin ?? 0) * 60_000)}`
+                  : '📘 Richtwerte für das Alter – wird mit mehr Einträgen persönlicher'}
+              </small>
+            </>
+          ) : (
+            <>
+              <span className="label">🍼 Mahlzeiten</span>
+              <small>Trage Stillen oder Fläschchen ein – danach schätzt die App die nächste Mahlzeit.</small>
+            </>
+          )}
+        </div>
         <div className="card">
-          <span className="label">🍼 Letzte Mahlzeit</span>
-          <strong>{lastFeed ? `vor ${fmtDur(now - (lastFeed.end ?? lastFeed.start))}` : '–'}</strong>
-          <small>{lastFeed ? `${TYPES[lastFeed.type].label} um ${fmtTime(lastFeed.start)}` : 'noch nichts erfasst'}</small>
+          <span className="label">🌙 Schlafenszeit</span>
+          <strong>{sleep.usualBedtime ? `üblich ${fmtTime(sleep.usualBedtime)}` : '–'}</strong>
+          <small>
+            {sleep.usualBedtime
+              ? `Ø der letzten ${sleep.bedtimeSamples} Abende${sleep.typicalNaps ? ` · meist ${sleep.typicalNaps} Nickerchen` : ''}`
+              : 'nach 3 Abenden mit „Schlafenszeit“'}
+          </small>
         </div>
         <div className="card">
           <span className="label">🧷 Letzte Windel</span>
@@ -204,7 +245,7 @@ export default function Today({ onOpen }: Props) {
           <div key={med.name} className="card wide med-card">
             <span className="label">💊 {med.name}</span>
             <strong>
-              {next! <= now ? 'Nächste Gabe möglich' : `Nächste Gabe ab ${fmtTime(next!)}`}
+              {next! <= now ? 'Nächste Gabe möglich' : `Nächste Gabe ab ${startOfDay(next!) > startOfDay(now) ? fmtDay(next!).toLowerCase() + ' ' : ''}${fmtTime(next!)}`}
             </strong>
             <small>Zuletzt {fmtDay(last!.start).toLowerCase()} um {fmtTime(last!.start)}{last!.dose ? ` (${last!.dose})` : ''} · Abstand {med.intervalH} h</small>
           </div>
@@ -254,7 +295,7 @@ export default function Today({ onOpen }: Props) {
   )
 }
 
-function SleepBar({ from, a, b, now }: { from: number; a: number; b: number; now: number }) {
+function TimeBar({ from, a, b, now }: { from: number; a: number; b: number; now: number }) {
   const end = Math.max(b + (b - a) * 0.3, now)
   const pct = (t: number) => `${Math.min(100, Math.max(0, ((t - from) / (end - from)) * 100))}%`
   return (

@@ -4,6 +4,7 @@ import type { AppState } from '../types'
 import { download } from '../utils'
 import { demoState } from '../demo'
 import SyncPanel from './SyncPanel'
+import NotifyPanel from './NotifyPanel'
 import { useSync } from '../sync'
 
 export default function Settings() {
@@ -47,11 +48,13 @@ export default function Settings() {
         <h2>Baby</h2>
         <label className="field"><span>Name</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" /></label>
         <label className="field"><span>Geburtsdatum</span><input type="date" value={birth} onChange={(e) => setBirth(e.target.value)} /></label>
-        <p className="hint">Das Geburtsdatum wird für die altersgerechte Schlafvorhersage (Wachfenster) verwendet.</p>
+        <p className="hint">Das Geburtsdatum wird für die Vorhersagen verwendet, solange noch wenige eigene Einträge vorhanden sind.</p>
         <button className="primary" onClick={saveBaby}>{saved ? '✓ Gespeichert' : 'Speichern'}</button>
       </section>
 
       <SyncPanel />
+
+      <NotifyPanel />
 
       <section className="panel">
         <h2>Medikamente</h2>
@@ -95,7 +98,7 @@ export default function Settings() {
       </section>
 
       <p className="hint center">
-        Die Schlafvorhersage basiert auf allgemeinen Richtwerten und ersetzt keine ärztliche Beratung.
+        Schlaf- und Mahlzeit-Vorhersagen sind Schätzungen aus euren bisherigen Einträgen bzw. allgemeinen Richtwerten und ersetzen keine ärztliche Beratung.
       </p>
     </>
   )

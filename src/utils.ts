@@ -1,5 +1,4 @@
 import type { AppState, Entry } from './types'
-import { sleepKindOf } from './types'
 
 export const MIN = 60_000
 export const HOUR = 60 * MIN
@@ -42,6 +41,7 @@ export function fmtDay(ts: number) {
   const day = startOfDay(ts)
   if (day === today) return 'Heute'
   if (day === addDays(today, -1)) return 'Gestern'
+  if (day === addDays(today, 1)) return 'Morgen'
   return new Date(ts).toLocaleDateString('de-DE', {
     weekday: 'short',
     day: '2-digit',
@@ -155,46 +155,6 @@ export function wakeWindow(birth: string) {
   if (days === undefined || days < 0) return undefined
   const weeks = days / 7
   return WAKE_WINDOWS.find((w) => weeks <= w.maxWeeks)!
-}
-
-export interface Prediction {
-  sleeping: boolean
-  night?: boolean
-  nightAwake?: boolean
-  since: number
-  windowFrom?: number
-  windowTo?: number
-  wakeWindowMin?: [number, number]
-}
-
-export function predictSleep(state: AppState, now = Date.now()): Prediction | undefined {
-  const sleeps = state.entries.filter((e) => e.type === 'sleep').sort((a, b) => b.start - a.start)
-  const running = sleeps.find((e) => e.end === undefined)
-  if (running) return { sleeping: true, night: sleepKindOf(running) === 'night', since: running.start }
-  const nw = state.entries.find((e) => e.type === 'nightwake' && e.end === undefined)
-  if (nw) return { sleeping: false, nightAwake: true, since: nw.start }
-  const lastSleep = sleeps.find((e) => e.end !== undefined && e.end <= now)
-  const lastWake = state.entries
-    .filter((e) => e.type === 'wake' && e.start <= now)
-    .sort((a, b) => b.start - a.start)[0]
-  // "Aufgewacht" ohne passenden Schlafeintrag zählt als Ende des Nachtschlafs
-  const last: Entry | undefined =
-    lastWake && (!lastSleep || lastWake.start > lastSleep.end!)
-      ? { ...lastWake, end: lastWake.start, start: lastWake.start - 10 * HOUR }
-      : lastSleep
-  if (!last || last.end === undefined) return undefined
-  const ww = wakeWindow(state.baby.birth)
-  if (!ww) return { sleeping: false, since: last.end }
-  // Nach kurzen Nickerchen (< 45 min) ist das nächste Wachfenster meist kürzer.
-  const short = last.end - last.start < 45 * MIN
-  const f = short ? 0.85 : 1
-  return {
-    sleeping: false,
-    since: last.end,
-    windowFrom: last.end + ww.min * f * MIN,
-    windowTo: last.end + ww.max * f * MIN,
-    wakeWindowMin: [ww.min, ww.max],
-  }
 }
 
 export function lastOf(state: AppState, types: Entry['type'][]) {

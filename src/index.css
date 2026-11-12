@@ -256,3 +256,15 @@ main > .section-title:first-of-type { margin-top: 4px; }
 .r-wake { width: 3px; margin-left: -1px; }
 .rhythm-bar .r-wake { background: var(--c-wake); }
 .legend .r-wake { background: var(--c-wake); }
+
+.card small.source { font-size: .74rem; opacity: .9; }
+.feed-card { border-left: 4px solid var(--c-bottle); }
+.feed-card .sleepbar { background: color-mix(in srgb, var(--c-bottle) 15%, transparent); }
+.feed-card .sleepbar-window { background: color-mix(in srgb, var(--c-bottle) 55%, transparent); }
+.feed-card .sleepbar-now { background: var(--c-med); }
+
+.toggle-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; padding: 4px 0; }
+.switch { width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .2s; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.switch.on { background: var(--accent); }
+.switch.on i { transform: translateX(18px); }
