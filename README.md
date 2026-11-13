@@ -33,27 +33,20 @@ Auf dem Handy öffnen → „Zum Home-Bildschirm hinzufügen“ – dann verhäl
 
 ## Gemeinsam nutzen (Abgleich zwischen zwei Handys)
 
-Die Daten liegen dann in deinem eigenen, kostenlosen Supabase-Projekt. Auf jedem Handy bleibt zusätzlich eine Kopie, sodass die App auch offline funktioniert.
+Die App ist mit dem Supabase-Projekt **Qube** (`bomgobasuuirjpvxonzc`) verbunden. URL und öffentlicher Schlüssel stehen in `.env.production`. Dieser Schlüssel ist für Apps gedacht und darf öffentlich sein, die Daten schützen die Zugriffsregeln aus `supabase/schema.sql`.
 
-1. Auf https://supabase.com kostenlos registrieren → **New project** (Region z. B. *Central EU (Frankfurt)*, Datenbank-Passwort sicher notieren).
-2. Im Projekt links **SQL Editor** öffnen, den Inhalt von [`supabase/schema.sql`](supabase/schema.sql) einfügen und **Run** drücken.
-3. **Authentication → Sign In / Providers → Email**: „Confirm email“ ausschalten (dann ist kein Bestätigungslink nötig).
-   Alternativ eingeschaltet lassen und unter **Authentication → URL Configuration** als *Site URL* `https://kbly.github.io/baby-tracker/` eintragen.
-4. **Project Settings → API**: *Project URL* und den *anon public* (bzw. *publishable*) Key kopieren.
-   Dieser Schlüssel ist für die Verwendung in Apps gedacht und darf öffentlich sein; geschützt werden die Daten durch die Zugriffsregeln aus Schritt 2.
-5. Auf GitHub im Repo **Settings → Secrets and variables → Actions → Reiter „Variables“ → New repository variable**:
-   - `SUPABASE_URL` = Project URL
-   - `SUPABASE_ANON_KEY` = anon/publishable Key
-6. **Actions → „Auf GitHub Pages veröffentlichen“ → Run workflow**.
-7. In der App unter **Mehr → Gemeinsam nutzen**: Konto erstellen → **Familie erstellen** → Einladungscode an den Partner geben.
-   Der Partner erstellt auf seinem Handy ein eigenes Konto und tritt mit dem Code bei.
+In der App unter **Mehr → Gemeinsam nutzen**: Konto erstellen → **Familie erstellen** → Einladungscode an den Partner geben. Der Partner erstellt ein eigenes Konto und tritt mit dem Code bei.
 
-Für die lokale Entwicklung die Werte in eine Datei `.env.local` schreiben:
+### Datenbank verwalten (Supabase-Agent)
+
+`scripts/supabase-agent.mjs` richtet Supabase ein und prüft die Schnittstelle (siehe auch `.claude/agents/supabase-setup.md`):
 
 ```
-VITE_SUPABASE_URL=https://xxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=...
+SUPABASE_ACCESS_TOKEN=sbp_... SUPABASE_PROJECT_REF=bomgobasuuirjpvxonzc node scripts/supabase-agent.mjs setup
+node scripts/supabase-agent.mjs verify
 ```
+
+`setup` spielt das Schema ein und konfiguriert die Anmeldung. `verify` testet mit Testkonten Familie, Einladung, Abgleich und Zugriffsschutz und räumt danach auf.
 
 ## Aufbau
 
