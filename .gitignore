@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 *.local
+
+# Supabase-Agent (Projekt-Ref und Schlüssel)
+.supabase-agent.json

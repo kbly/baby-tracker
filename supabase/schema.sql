@@ -1,12 +1,10 @@
 -- Baby Tracker: Datenbank für den gemeinsamen Abgleich
 -- Im Supabase-Dashboard unter "SQL Editor" komplett einfügen und "Run" drücken.
 
-create extension if not exists pgcrypto;
-
 -- Eine "Familie" teilt sich ein Baby und alle Einträge.
 create table if not exists public.families (
   id uuid primary key default gen_random_uuid(),
-  invite_code text unique not null default upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8)),
+  invite_code text unique not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
   baby jsonb not null default '{}'::jsonb,
   meds jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now(),
@@ -31,7 +29,7 @@ create index if not exists entries_family_updated on public.entries (family_id, 
 
 -- updated_at bei jeder Änderung automatisch setzen
 create or replace function public.touch_updated_at() returns trigger
-language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
+language plpgsql set search_path = public as $$ begin new.updated_at = now(); return new; end $$;
 
 drop trigger if exists entries_touch on public.entries;
 create trigger entries_touch before insert or update on public.entries
